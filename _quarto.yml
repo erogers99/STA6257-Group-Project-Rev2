@@ -1,0 +1,27 @@
+project:
+  type: book
+  output-dir: docs
+
+book:
+  title: "Stroke Survival Analysis"
+  subtitle: "STA6257 - Group Project"
+  author: "Elizabeth Arthur and Emily Rogers"
+  date: "12/07/2022"
+  chapters:
+    - index.qmd
+    - part1.qmd
+    - part2.qmd
+    - part3.qmd
+    - part4.qmd
+    - references.qmd
+
+#bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+  pdf:
+    documentclass: scrreprt
+
+self-contained: true
+editor: source

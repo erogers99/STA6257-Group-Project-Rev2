@@ -1,0 +1,174 @@
+# Methods
+
+Data reported by the JHS study was used in calculating basic survival analysis on the adjudication of strokes in the cohort. Two data sets were utilized and joined on the variable subjectid. After removing N/As, 2,288 observations remained in the data set for further analysis. The analysis was completed using R statistical software package, specifically the {survival} package (Zabor). This analysis will focus on two primary methods, the Kaplan-Meier (KM) plot and the Cox proportional hazards model.
+
+
+## Creating a survival object
+Using the calculated time and the variable stroke, a survival object was created using the surv() function (Zabor). The object creates a vector that results in one entry created for each observation that represent the time to stroke. If the subject was censored, the entry is followed by a plus symbol (+). A sample of the object vector is shown:
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(haven)
+library(table1)
+library(lubridate)
+library(survival)
+library(ggsurvfit)
+library(gtsummary)
+library(ggfortify)
+library(corrplot)
+library(fastDummies)
+
+#library(tidycmprsk)
+#library(condSURV)
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+#load visit 1 data
+datav1 <- read_dta("data/analysis1.dta")
+visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
+
+#visit1 <- visit1 %>% rename(visitdate_v1 = visitdate)
+
+#load adjudicated data
+
+#data_allevtstroke <- read_sas("data/allevtstroke.sas7bdat", NULL)
+#allevtstroke <- data_allevtstroke %>% dplyr :: select(subjid, Stroke, OHDStroke, eventdate)
+
+data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
+incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
+
+#allevtstroke <- allevtstroke %>% rename(stroke_allevt = Stroke, ohdstroke = OHDStroke)
+
+incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
+
+#data_adj <- full_join(allevtstroke, incevtstroke, by = "subjid")
+
+# Create final data set
+
+data <- full_join(incevtstroke, visit1, by = "subjid")
+data <- na.omit(data)
+
+```
+
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+#Create time variable (time from visit 1 until event/censoring date)
+data <- data %>% mutate(time = difftime(date, visitdate))
+
+#Create the survival object (created from time variable and if the event has taken place.)
+obj <- Surv(data$time, data$stroke)
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+ #Sample from object vector
+ tail(head(obj, 115), 5)
+```
+
+
+The object created was then used to construct a survival curve using the survfit function. As an example, the object was plotted against hypertension and diabetes categorization. 
+
+**Hypertension**
+
+*
+As an example, the below graph illustrates the probability of **NOT** having a stroke (the event):
+  + Non-hypertensive (0 - pink): approximately 1% decrease over the length of the study
+  + Hypertensive (1 - blue): approximately 3% decrease over the length of the study
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+# https://cran.r-project.org/web/packages/ggfortify/vignettes/basics.html
+
+autoplot(survfit(obj ~ htn, data = data)) + labs(x="Time (days)", y="Probablity of Survival")
+```
+
+**Diabetes**
+
+*
+As an example, the below graph illustrates the probability of **NOT** having a stroke (the event):
+  + Non-Diabetic (0 - pink): < 1% decrease over the length of the study
+  + Pre-Diabetic (1 - green): approximately 2.5% decrease over the length of the study
+  + Diabetic (2 - blue): approximately 4.5% decrease over the length of the study
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+autoplot(survfit(obj ~ diab3cat, data = data),legend= TRUE, legTitle = "LEEG", legLabs = c("D", "PD","ND")) + labs(x="Time (days)", y="Probablity of Survival")
+
+```
+
+
+
+## Kaplan-Meier (K-M) Survival Estimate {.unnumbered}
+
+Broken down, the K-M survival probability of not having stroke at time, $t_j$, $S(t_j)$ can be calculated using: 
+
++ Formula variable definitions
+
+  + $S(t_{j-1})$ => the probability of not having a stroke at time *$t_{j-1}$
+  + $n_j$ => the number of participants stroke free just before $t_j$, $n_j$
+  + $d_j$ => the number of events (strokes) at $t_j$
+
+$$  
+  S(t_j) = S(t_{j-1})(1 - \frac{d_j}{n_j})
+$$
+(Clark, Bradburn, Love & Altman, 2003)
+
+A Kaplan-Meier plot was created to visualize the survival curve and confidence interval, which is further discussed in Data Analysis and Results.
+
+
+## Cox Proportional Hazard (PH) {.unnumbered}
+
+The Cox PH is the hazard function, $h(t)$, which is determined by the baseline hazard ($h_0(t)$), a set of variables ($x_1, x_2, … x_p$), and the effect of each variable is determined by their coefficient ($b_1, b_2 … b_p$) (Bradburn, Clark, Love & Altman, 2003), mathematically shown as:
+
+$$
+h(t) = h_0(t) * e^{b_1x_1 + b_2x_2 + … + b_px_p}
+$$
+
+
+This method does not make the assumption that survival times follow any type of statistical distribution. In the development of the model, it is important to consider whether colinearity, the correlation between two of the independent variables, exists (Linden, Adams & Roberts, 2004). 
+
+A Cox PH analysis was used to model multiple variables from the data set. The coxph() function from the {survival} package was used. The object previously created for the KM plot is found on the left side with standard regression formulas on the right. All variables considered in the model are identified by the CDC as major risk factors for stroke. A table of results was created using the tbl_regression() function out of {gtsummary}, with exponentiate set to TRUE to return the hazard ratio versus the log hazard ratio, which is further discussed in Data Analysis and Results.
+
+
+
+## Assumption Verification {.unnumbered}
+
+**Collinearity**
+
+To test the co-linearity of the individual variables, a correlation plot (RDocumentation) was utilized. As all results are much less than one, the individual variables are not dependent on any other variable included in the model. As such, the assumption holds true.
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+##Colinearity/Multi-collinearity?? 
+
+data_sub <- data %>% dplyr :: select(stroke, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
+
+A <- cor(data_sub)
+colnames(A) = c('chol', 'BMI','Stroke','age','HTN','Dia','Smoke')
+
+corrplot.mixed(A, order = 'AOE')
+```
+
+
+
+**Proportional Hazards**
+
+Cox PH makes the assumption that hazards are proportional at each point in time throughout the study (Bradburn, Clark, Love & Altman, 2003). Using the cox.zph() function from the {survival} package, the assumption can be checked (Zabor). In the below table it can be seen that all p-values are greater than $\alpha = 0.05$. Therefore, the assumption holds true.
+
+**Note:** this assumption is not applicable for other analysis such as the K-M Survival Estimate.
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+#Using the cox.zph() function from the {survival} package, the assumption can be checked.
+
+assump_fit <- coxph(obj ~ age + as.factor(htn) + as.factor(diab3cat) + as.factor(idealhealthsmk) + as.factor(bmi3cat)+ as.factor(totchol3cat), data=data)
+#assump_fit
+
+# Checking PH assumptions
+# Significat p-value indicates assumption is not met
+mv_fit <- coxph(obj ~ stroke + age + htn+ diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data = data)
+cz <- cox.zph(mv_fit)
+print(cz)
+#plot(cz)
+
+```

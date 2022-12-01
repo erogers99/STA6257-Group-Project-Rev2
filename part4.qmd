@@ -1,0 +1,174 @@
+# Data Analysis & Results
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+library(tidyverse)
+library(haven)
+library(table1)
+library(lubridate)
+library(survival)
+library(ggsurvfit)
+library(gtsummary)
+#library(ComparisonSurv)
+library(survminer)
+#library(tidycmprsk)
+#library(condSURV)
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+#load visit 1 data
+datav1 <- read_dta("data/analysis1.dta")
+visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
+
+#visit1 <- visit1 %>% rename(visitdate_v1 = visitdate)
+
+#load adjudicated data
+
+#data_allevtstroke <- read_sas("data/allevtstroke.sas7bdat", NULL)
+#allevtstroke <- data_allevtstroke %>% dplyr :: select(subjid, Stroke, OHDStroke, eventdate)
+
+data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
+incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
+
+#allevtstroke <- allevtstroke %>% rename(stroke_allevt = Stroke, ohdstroke = OHDStroke)
+
+incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
+
+#data_adj <- full_join(allevtstroke, incevtstroke, by = "subjid")
+
+# Create final data set
+
+data <- full_join(incevtstroke, visit1, by = "subjid")
+data <- na.omit(data)
+
+```
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+#Create time variable (time from visit 1 until event/censoring date)
+data <- data %>% mutate(time = difftime(date, visitdate))
+
+#Create the survival object (created from time variable and if the event has taken place.)
+obj <- Surv(data$time, data$stroke)
+```
+
+## K-M Plot {.unnumbered}
+
+*
+The K-M plot can be interpreted as:
+   + X-axis: represents time in days
+   + Y-axis: provides the probability of participants having remained stroke free since the start of the study
+   + The line represents the survival curve of the cohort of participants based on the survival object
+   + The shaded area is the 95% confidence interval
+   + A vertical drop in the line indicates an event
+
+*
+Further interpretation can be noted as:
+  + At time zero, the survival probability is 1.0 (100% of the participants are stroke free)
+  + At time 2,500, the survival probability is .99 (99% of the participants are stroke free)
+  + At time > 4,000 the the survival probability is < .98 (less than 98% of the participants are stroke free)
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+km <- survfit(obj ~1, data=data)
+
+#km_struct <- str(km)
+
+km_2 <- survfit2(obj ~ 1, data=data)
+
+km_plot <- km_2 %>% ggsurvfit() + labs(title = "K-M Plot", x = "Time in Days", y = "Overall probability of Survival (Stroke Free)") + add_confidence_interval() + add_risktable()
+
+
+km_plot
+```
+
+## Cox Proportion Hazards Model  {.unnumbered}
+
+
+The hazard object created is modeled on all variables that provides a table which includes the hazard ratio (HR), confidence interval and p-value. Of interest from the Cox regression is the HR (Zabor).
+
+*
+The following HR values indicate:
+  + HR < 1 indicates a reduced hazard of stroke
+  + HR > 1 indicates an increased hazard of stroke
+
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+
+#Transform data
+data$stroke <- as.factor(data$stroke)
+data$htn <- as.factor(data$htn)
+data$diab3cat <- as.factor(data$diab3cat)
+data$idealhealthsmk <- as.factor(data$idealhealthsmk)
+data$totchol3cat <- as.factor(data$totchol3cat)
+data$bmi3cat <- as.factor(data$bmi3cat)
+
+##Label data
+label(data$stroke) <- "Adjudicated Stroke Occurrance"
+levels(data$stroke) <- c("No Stroke", "Adjudicated Stroke")
+
+label(data$htn) <- "Hypertensive Status"
+levels(data$htn) <- c("Normal/Pre-Hypertensive", "Hypertensive")
+
+label(data$diab3cat) <- "Diabetes Categorization"
+levels(data$diab3cat) <- c("Non-Diabetic", "Pre-Diabetic", "Diabetic")
+
+label(data$idealhealthsmk) <- "Smoking Status"
+levels(data$idealhealthsmk) <- c("Current Smoker","Never Smoked/Quit >= 12 months")
+
+label(data$bmi3cat) <- "AHA BMI Categorization"
+levels(data$bmi3cat) <- c("Obese","Overweight","Normal Weight")
+
+label(data$totchol3cat) <- "AHA Total Cholesterol Categorization"
+levels(data$totchol3cat) <- c("Poor Health","Intermediate Health","Ideal Health")
+
+cox <- coxph(obj ~ age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data=data)
+
+# cox <- coxph(obj ~ age + as.factor(htn) + as.factor(diab3cat) + as.factor(idealhealthsmk) + as.factor(bmi3cat) + as.factor(totchol3cat), data=data)
+
+cox_table <- cox %>% tbl_regression(exp = TRUE) 
+cox_table
+```
+
+
+### Hazard Ratio Interpretation
+
+The JHS data is not consistent in the use of the healthy indicator as the reference. The below interpretation will be split by those with the healthy group as reference and those with the least healthy group as the reference. While the HR is the indicator of interest, p-values will be noted to indicate additional statistical significance to the model.
+
+| **Variable**                                   | **Hazard Ratio** | **p-value** | **Interpretation**                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|------------------------------------------------|------------------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **_Healthy Indicator = Reference_**      |                  |             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Hypertension                                   |       1.10       |     0.8     | -The HR implies that of those classified as hypertensive, there are 1.1 times as many hypertensive participants with stroke occurrence at any given time. <br><br>-Stated another way, hypertensive participants have a slightly higher hazard of stroke than those who are not hypertensive. <br><br>-The p-value may indicate that this is a not significant variable to consider.                                                                                     |
+| Pre-Diabetic                                   |       2.65       |    0.031    | -The HR implies that of those classified as pre-diabetic, there are 2.65 times as many pre-diabetic participants with stroke occurrence at any given time.<br><br>-Stated another way, pre-diabetic participants have a much higher hazard of stroke than those who are not diabetic.<br><br>-The p-value may indicate that this is not a significant variable to consider.                                                                                               |
+| Diabetic                                       |       4.82       |    0.001    | -The HR implies that of those classified as diabetic, there are 4.82 times as many diabetic participants with stroke occurrence at any given time. <br><br>-Stated another way, diabetic participants have a significantly higher hazard of stroke than those who are not diabetic. <br><br>-The p-vale may indicate that this is a significant variable to consider.                                                                                                    |
+| **_Least Health Indicator = Reference_** |                  |             |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Never Smoked/Quit $\geq$ 12 months             |       0.37       |    0.012    | -The HR implies that of those classified as a non-smoker or having quit $\geq$ 12 months ago,  there are 0.37 times as many non-smokers with stroke occurrence at any given time. <br><br>-Stated another way, non-smokers/those who quit $\geq$ 12 months ago have a significantly lower hazard of stroke than those who are smokers. <br><br>-The p-value may indicate that is a significant variable to consider.                                             |
+| Overweight                                     |       1.27       |     0.5     | -The HR implies that of those classified overweight, there are 1.27 times as many overweight participants with stroke occurrence at any given time. <br><br>-Stated another way, overweight participants have a higher hazard of stroke than those who are obese. <br><br>-The p-value may indicate that is not a significant variable to consider.<br><br>- This interpretation should be further discussed with collaborators                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Normal Weight                                  |       1.30       |     0.6     | -The HR implies that of those classified as normal weight, there are 1.30 times as many normal weight participants with stroke occurrence at any given time. <br><br>-Stated another way, normal weight participants have a higher hazard of stroke than those who are obese. <br><br>-The p-value may indicate that is not a significant variable to consider.<br><br>- This interpretation should be further discussed with collaborators                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Cholesterol - Intermediate Health              |       0.69       |     0.3     | -The HR implies that of those classified as having intermediate health based on their cholesterol, there are 0.69 times as many intermediate health participants with stroke occurrence at any given time. <br><br>-Stated another way, participants classified as having intermediate health have a much lower hazard of stroke than those with high cholesterol/in poor health. <br><br>-The p-value may indicate that this is not a significant variable to consider. |
+| Cholesterol - Ideal Health                     |       0.50       |     0.10    | -The HR implies that of those classified as having ideal health based on their cholesterol, there are 0.5 times as many ideal health participants with stroke occurrence at any given time. <br><br>-Stated another way, participants classified as having ideal health have a significantly lower hazard of stroke than those with high cholesterol/in poor health. <br><br>-The p-value may indicate that this is not a significant variable to consider.              |
+
+
+
+
+### Hazard Curve {.unnumbered}
+
+
+*
+The Cox PH Curve can be interpreted as:
+   + X-axis: represents time in days
+   + Y-axis: provides the probability of participants having a stroke since the start of the study
+   + The line represents the hazard curve of the cohort of participants based on the survival object
+   + The shaded area is the 95% confidence interval
+   + A vertical climb in the line indicates an event
+
+*
+Further interpretation can be noted as:
+  + At time zero, the hazard probability is 0.0 (0% of the participants have had a stroke since joining the study)
+  + At time 2,500, the hazard probability is .01 (1% of the participants have had a stroke since joining the study)
+  + At time > 4,000 the the hazard probability is > .02 (greater than 2% of the participants have had a stroke since joining the study)
+
+```{r, echo = FALSE, warning = FALSE, message = FALSE}
+fit <- survfit(obj ~ 1, data = data)
+ggsurvplot(fit, fun = function(y) -log(y), data = data, title = "Hazard Curve", xlab = "Time in days", ylab = "Probablity of Hazard (Stroke)", palette = "#2E9FDF")
+```

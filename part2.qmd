@@ -100,21 +100,22 @@ table1(~ age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat|contactty
 
 ```
 
-### **Visuals** {.unnumbered}
+### **Data Visualizations** {.unnumbered}
+
+This plot illustrates that the majority of **current** smokers were censored from the study.
+
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
 #Create plot of smoking vs contact type.
 
-plot1 <- data %>% ggplot(aes(colour=as.factor(idealhealthsmk), x=contacttype)) + geom_bar (method=lm) + labs(colour= "Smoking Status", y = "Number of Participants", x = "Contact type", title = "Contact type and Smoking Status")
+plot1 <- data %>% ggplot(aes(colour=as.factor(idealhealthsmk), x=contacttype)) + geom_bar (method=lm) + labs(colour= "Smoking Status", y = "Number of Participants", x = "Contact Type", title = "Contact Type and Smoking Status")
 
 plot1
 
 ```
 
-Note: Looking at the above plot it can be seen that the majority of current smokers were censored from the study.
 
 
-
-The below plots illustrate how the individual variables trend (and change) throughout the study.
+This collection of plots illustrate how the individual variables trend (and change) throughout the study.
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
 

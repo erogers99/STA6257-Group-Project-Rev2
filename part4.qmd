@@ -8,10 +8,8 @@ library(lubridate)
 library(survival)
 library(ggsurvfit)
 library(gtsummary)
-#library(ComparisonSurv)
 library(survminer)
-#library(tidycmprsk)
-#library(condSURV)
+
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
@@ -20,21 +18,12 @@ library(survminer)
 datav1 <- read_dta("data/analysis1.dta")
 visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
 
-#visit1 <- visit1 %>% rename(visitdate_v1 = visitdate)
-
 #load adjudicated data
-
-#data_allevtstroke <- read_sas("data/allevtstroke.sas7bdat", NULL)
-#allevtstroke <- data_allevtstroke %>% dplyr :: select(subjid, Stroke, OHDStroke, eventdate)
 
 data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
 incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
 
-#allevtstroke <- allevtstroke %>% rename(stroke_allevt = Stroke, ohdstroke = OHDStroke)
-
 incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
-
-#data_adj <- full_join(allevtstroke, incevtstroke, by = "subjid")
 
 # Create final data set
 
@@ -72,12 +61,9 @@ Further interpretation can be noted as:
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
 km <- survfit(obj ~1, data=data)
 
-#km_struct <- str(km)
-
 km_2 <- survfit2(obj ~ 1, data=data)
 
 km_plot <- km_2 %>% ggsurvfit() + labs(title = "K-M Plot", x = "Time in Days", y = "Overall probability of Survival (Stroke Free)") + add_confidence_interval() + add_risktable()
-
 
 km_plot
 ```
@@ -123,8 +109,6 @@ label(data$totchol3cat) <- "AHA Total Cholesterol Categorization"
 levels(data$totchol3cat) <- c("Poor Health","Intermediate Health","Ideal Health")
 
 cox <- coxph(obj ~ age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data=data)
-
-# cox <- coxph(obj ~ age + as.factor(htn) + as.factor(diab3cat) + as.factor(idealhealthsmk) + as.factor(bmi3cat) + as.factor(totchol3cat), data=data)
 
 cox_table <- cox %>% tbl_regression(exp = TRUE) 
 cox_table

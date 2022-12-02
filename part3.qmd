@@ -19,8 +19,6 @@ library(ggfortify)
 library(corrplot)
 library(fastDummies)
 
-#library(tidycmprsk)
-#library(condSURV)
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
@@ -169,6 +167,5 @@ assump_fit <- coxph(obj ~ age + as.factor(htn) + as.factor(diab3cat) + as.factor
 mv_fit <- coxph(obj ~ stroke + age + htn+ diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data = data)
 cz <- cox.zph(mv_fit)
 print(cz)
-#plot(cz)
 
 ```

@@ -1,1 +1,161 @@
-# Appendix A: Coding  {.unnumbered}
+# Appendix A: Code {.unnumbered}
+
+## Load Libraries and Data
+```{r, eval=FALSE}
+
+#Load Libraries
+library(tidyverse)
+library(haven)
+library(table1)
+library(lubridate)
+library(survival)
+library(ggsurvfit)
+library(gtsummary)
+library(ggfortify)
+library(corrplot)
+library(fastDummies)
+library(survminer)
+
+
+#Load Data
+
+##load visit 1 data
+datav1 <- read_dta("data/analysis1.dta")
+visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
+
+##load adjudicated data
+
+data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
+incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
+
+incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
+
+## Create final data set
+
+data <- full_join(incevtstroke, visit1, by = "subjid")
+data <- na.omit(data)
+
+##Transform data
+data$stroke <- as.factor(data$stroke)
+data$htn <- as.factor(data$htn)
+data$diab3cat <- as.factor(data$diab3cat)
+data$idealhealthsmk <- as.factor(data$idealhealthsmk)
+data$totchol3cat <- as.factor(data$totchol3cat)
+data$bmi3cat <- as.factor(data$bmi3cat)
+
+##Label data
+label(data$age) <- "Age"
+
+label(data$stroke) <- "Adjudicated Stroke Occurrance"
+levels(data$stroke) <- c("No Stroke", "Adjudicated Stroke")
+
+label(data$htn) <- "Hypertensive Status"
+levels(data$htn) <- c("Normal/Pre-Hypertensive", "Hypertensive")
+
+label(data$diab3cat) <- "Diabetes Categorization"
+levels(data$diab3cat) <- c("Non-Diabetic", "Pre-Diabetic", "Diabetic")
+
+label(data$idealhealthsmk) <- "Smoking Status"
+levels(data$idealhealthsmk) <- c("Current Smoker","Never Smoked/Quit + 12 months")
+
+label(data$bmi3cat) <- "AHA BMI Categorization"
+levels(data$bmi3cat) <- c("Obese","Overweight","Normal Weight")
+
+label(data$totchol3cat) <- "AHA Total Cholesterol Categorization"
+levels(data$totchol3cat) <- c("Poor Health","Intermediate Health","Ideal Health")
+
+```
+
+## Part 2: Data Exploration
+
+```{r, eval=FALSE}
+
+#Create time variable (time from visit 1 until event/censoring date)
+data <- data %>% mutate(time = difftime(date, visitdate))
+
+
+#Create the survival object (created from time variable and if the event has taken place.)
+obj <- Surv(data$time, data$stroke)
+
+#Create Table based on contact type
+table1(~ age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat|contacttype, data=data)
+
+
+# Plot smoking and contact type
+
+plot1 <- data %>% ggplot(aes(colour=as.factor(idealhealthsmk), x=contacttype)) + geom_bar (method=lm) + labs(colour= "Smoking Status", y = "Number of Participants", x = "Contact Type", title = "Contact Type and Smoking Status")
+
+plot1
+
+
+# Plot predictor variables
+plot2 <- autoplot(aareg(obj ~ data$age + data$htn + data$diab3cat + data$idealhealthsmk + data$bmi3cat + data$totchol3cat))
+
+plot2
+```
+
+## Part 3: Methods
+
+```{r, eval=FALSE}
+ #Sample from object vector
+ tail(head(obj, 115), 5)
+
+
+
+# Plots baseed on survival Object
+
+## HTN
+autoplot(survfit(obj ~ htn, data = data)) + labs(x="Time (days)", y="Probablity of Survival")
+
+## Diabetes
+
+autoplot(survfit(obj ~ diab3cat, data = data),legend= TRUE, legTitle = "LEEG", legLabs = c("D", "PD","ND")) + labs(x="Time (days)", y="Probablity of Survival")
+
+#Assumptions
+##Colinearity/Multi-collinearity?? 
+
+data_sub <- data %>% dplyr :: select(stroke, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
+
+A <- cor(data_sub)
+colnames(A) = c('Chol', 'BMI','Stroke','Age','HTN','Diab','Smoke')
+
+corrplot.mixed(A, order = 'AOE')
+
+
+#Using the cox.zph() function from the {survival} package, the assumption can be checked.
+
+assump_fit <- coxph(obj ~ age + as.factor(htn) + as.factor(diab3cat) + as.factor(idealhealthsmk) + as.factor(bmi3cat)+ as.factor(totchol3cat), data=data)
+#assump_fit
+
+## Checking PH assumptions  (Significat p-value indicates assumption is not met)
+mv_fit <- coxph(obj ~ stroke + age + htn+ diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data = data)
+cz <- cox.zph(mv_fit)
+print(cz)
+
+```
+
+## Part 4: Methods
+
+```{r, eval=FALSE}
+
+#KM Curve
+
+km <- survfit(obj ~1, data=data)
+
+km_2 <- survfit2(obj ~ 1, data=data)
+
+km_plot <- km_2 %>% ggsurvfit() + labs(title = "K-M Plot", x = "Time in Days", y = "Overall probability of Survival (Stroke Free)") + add_confidence_interval() + add_risktable()
+
+km_plot
+
+# Cox PH Analysis
+
+cox <- coxph(obj ~ age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data=data)
+cox_table <- cox %>% tbl_regression(exp = TRUE) 
+cox_table
+
+# Hazard Curve
+fit <- survfit(obj ~ 1, data = data)
+ggsurvplot(fit, fun = function(y) -log(y), data = data, title = "Hazard Curve", xlab = "Time in days", ylab = "Probablity of Hazard (Stroke)", palette = "#2E9FDF")
+
+```

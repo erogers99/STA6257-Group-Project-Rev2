@@ -8,17 +8,9 @@ library(lubridate)
 library(survival)
 library(ggsurvfit)
 library(gtsummary)
-library(survival)
-library(ggsurvfit)
-library(gtsummary)
 library(ggfortify)
 library(corrplot)
 
-
-#library(plotly)
-
-#library(tidycmprsk)
-#library(condSURV)
 ```
 The JHS Analysis Dataset Warehouse dictionary was reviewed and variables were selected for further analysis/use in a survival analysis based on the CDC's top risk factors which include: high blood pressure, high cholesterol, smoking, obesity and diabetes. Additionally, age is included, as risk increases with age.
 
@@ -31,21 +23,13 @@ Table 2 provides descriptive statistics about selected variables based on the cl
 datav1 <- read_dta("data/analysis1.dta")
 visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
 
-#visit1 <- visit1 %>% rename(visitdate_v1 = visitdate)
-
 #load adjudicated data
-
-#data_allevtstroke <- read_sas("data/allevtstroke.sas7bdat", NULL)
-#allevtstroke <- data_allevtstroke %>% dplyr :: select(subjid, Stroke, OHDStroke, eventdate)
 
 data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
 incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
 
-#allevtstroke <- allevtstroke %>% rename(stroke_allevt = Stroke, ohdstroke = OHDStroke)
-
 incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
 
-#data_adj <- full_join(allevtstroke, incevtstroke, by = "subjid")
 
 # Create final data set
 
@@ -79,8 +63,6 @@ levels(data$bmi3cat) <- c("Obese","Overweight","Normal Weight")
 label(data$totchol3cat) <- "AHA Total Cholesterol Categorization"
 levels(data$totchol3cat) <- c("Poor Health","Intermediate Health","Ideal Health")
 
-#Create Table
-#table1(~ stroke + contacttype + age + htn + diab3cat + idealhealthsmk + bmi3cat + totchol3cat, data = data)
 ```
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
@@ -123,21 +105,11 @@ This collection of plots illustrate how the individual variables trend (and chan
 datav1 <- read_dta("data/analysis1.dta")
 visit1 <- datav1 %>% dplyr :: select(subjid, visitdate, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
 
-#visit1 <- visit1 %>% rename(visitdate_v1 = visitdate)
-
 #load adjudicated data
-
-#data_allevtstroke <- read_sas("data/allevtstroke.sas7bdat", NULL)
-#allevtstroke <- data_allevtstroke %>% dplyr :: select(subjid, Stroke, OHDStroke, eventdate)
-
 data_incevtstroke <- read_sas("data/incevtstroke.sas7bdat", NULL)
 incevtstroke <- data_incevtstroke %>% dplyr :: select(subjid, stroke, date, contactType)
 
-#allevtstroke <- allevtstroke %>% rename(stroke_allevt = Stroke, ohdstroke = OHDStroke)
-
 incevtstroke <- incevtstroke %>% rename(contacttype = contactType)
-
-#data_adj <- full_join(allevtstroke, incevtstroke, by = "subjid")
 
 # Create final data set
 
@@ -167,17 +139,12 @@ label(data$totchol3cat) <- "AHA Total Cholesterol Categorization"
 
 
 ```{r, echo = FALSE, warning = FALSE, message = FALSE}
-#fit <- survfit(Surv(data$time, data$stroke) ~ data$age)
-#autoplot(survfit(Surv(data$time, data$stroke) ~ 1),surv.colour = 'orange', censor.colour = 'red')
-
 # https://cran.r-project.org/web/packages/ggfortify/vignettes/plot_surv.html
 # https://www.rdocumentation.org/packages/survival/versions/3.4-0/topics/aareg
 # https://rviews.rstudio.com/2017/09/25/survival-analysis-with-r/
 
 
 plot2 <- autoplot(aareg(obj ~ data$age + data$htn + data$diab3cat + data$idealhealthsmk + data$bmi3cat + data$totchol3cat))
-
-#plot2 <- plot2 %>% label()
 
 plot2
 ```

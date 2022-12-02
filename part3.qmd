@@ -145,7 +145,7 @@ To test the co-linearity of the individual variables, a correlation plot (RDocum
 data_sub <- data %>% dplyr :: select(stroke, age, htn, diab3cat, idealhealthsmk, bmi3cat, totchol3cat)
 
 A <- cor(data_sub)
-colnames(A) = c('chol', 'BMI','Stroke','age','HTN','Dia','Smoke')
+colnames(A) = c('Chol', 'BMI','Stroke','Age','HTN','Diab','Smoke')
 
 corrplot.mixed(A, order = 'AOE')
 ```
